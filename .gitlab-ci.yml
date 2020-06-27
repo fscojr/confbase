@@ -1,0 +1,67 @@
+ 
+stages:
+  - test
+  - build
+  - deploy
+
+test:
+  stage: test
+  script:
+    - echo "teste"
+
+build:
+  image: docker:19.03.11
+  stage: build 
+  variables:
+    IMAGE_TAG: $CI_REGISTRY_IMAGE:nginx-$CI_PIPELINE_ID
+  before_script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+  script: 
+    - docker build -t "$CI_REGISTRY/$IMAGE_TAG" .
+push:
+  image: docker:19.03.11
+  stage: build
+  variables:
+    IMAGE_TAG: $CI_REGISTRY_IMAGE:nginx-$CI_PIPELINE_ID
+  before_script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+  script:  
+    - docker push "$CI_REGISTRY/$IMAGE_TAG"
+    
+deploy_dev:
+  image:
+    name: bitnami/kubectl:1.14
+    entrypoint: [""]
+  stage: deploy
+  before_script:
+    - echo $KUBE_CREDENTIALS | base64 -d > config
+    - export KUBECONFIG=config
+  script:
+    - kubectl get namespaces    
+  environment:
+    name: desenvolvimento
+    url: https://staging.example.com
+  only:
+  - master
+  
+
+deploy_homolog:
+  stage: deploy
+  script:
+    - echo "Deploy to staging server"
+  environment:
+    name: homologacao
+    url: https://staging.example.com
+  only:
+  - master
+
+deploy_prod:
+  stage: deploy
+  script:
+    - echo "Deploy to production server"
+  environment:
+    name: production
+    url: https://example.com
+  when: manual
+  only:
+  - master
